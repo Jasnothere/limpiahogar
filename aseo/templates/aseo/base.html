@@ -24,6 +24,7 @@
       <div class="grupo">General</div>
       <a href="{% url 'inicio' %}">Inicio</a>
       <a href="{% url 'informes' %}">Informes</a>
+      <a href="{% url 'consultas_sql' %}">Consultas SQL</a>
       <a href="{% url 'clientes_calificacion' %}">Calificación de clientes</a>
       {% for grupo, tablas in menu_grupos %}
         <div class="grupo">{{ grupo }}</div>

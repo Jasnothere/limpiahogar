@@ -291,3 +291,31 @@ def informes(request):
                       .values("elemento__tipo_elemento__nombre").annotate(n=Count("pk")).order_by("-n")),
     }
     return render(request, "aseo/informes.html", ctx)
+
+
+# ---------------------------------------------------------------------
+# Las 15 consultas SQL preparadas (sql/consultas.sql)
+# ---------------------------------------------------------------------
+
+def consultas_sql(request):
+    from django.db import DatabaseError, connection
+
+    from .consultas import cargar
+
+    es_postgres = connection.vendor == "postgresql"
+    resultados = []
+    for c in cargar():
+        item = dict(c, columnas=[], filas=[], total=0, error=None)
+        if es_postgres:
+            try:
+                with transaction.atomic(), connection.cursor() as cur:
+                    cur.execute("SET TRANSACTION READ ONLY")
+                    cur.execute(c["sql"])
+                    item["columnas"] = [d[0] for d in cur.description]
+                    filas = cur.fetchall()
+                    item["total"] = len(filas)
+                    item["filas"] = filas[:50]
+            except DatabaseError as e:
+                item["error"] = str(e)
+        resultados.append(item)
+    return render(request, "aseo/consultas.html", {"consultas": resultados, "es_postgres": es_postgres})

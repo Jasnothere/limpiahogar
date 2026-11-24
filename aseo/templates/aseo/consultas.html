@@ -1,0 +1,28 @@
+{% extends "aseo/base.html" %}
+{% block titulo %}Consultas SQL{% endblock %}
+{% block contenido %}
+<h1 class="h3">15 consultas SQL preparadas</h1>
+<p class="text-muted">Son las mismas consultas del archivo <code>consultas.sql</code>, ejecutadas aquí sobre la base de datos de la aplicación. Se muestran hasta 50 filas de cada una.</p>
+{% if not es_postgres %}
+<div class="alert alert-warning">Las consultas usan funciones de PostgreSQL y solo se ejecutan en la versión publicada. En este equipo la app usa SQLite, así que solo se muestra el código.</div>
+{% endif %}
+<div class="mb-3 small">{% for c in consultas %}<a class="me-2" href="#c{{ c.numero }}">{{ c.numero }}. {{ c.tipo }}</a>{% endfor %}</div>
+{% for c in consultas %}
+<div class="card mb-3" id="c{{ c.numero }}">
+  <div class="card-header"><span class="badge text-bg-primary me-2">{{ c.numero }}</span><strong>{{ c.tipo }}</strong></div>
+  <div class="card-body">
+    <p class="mb-2">{{ c.descripcion }}</p>
+    <details class="mb-2"><summary class="small">Ver el código SQL</summary><pre class="bg-light p-2 small mb-0"><code>{{ c.sql }};</code></pre></details>
+    {% if c.error %}<div class="alert alert-danger small mb-0">{{ c.error }}</div>
+    {% elif es_postgres %}
+      <div class="table-responsive" style="max-height:320px">
+      <table class="table table-sm table-striped small mb-1">
+        <thead class="table-light"><tr>{% for col in c.columnas %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for fila in c.filas %}<tr>{% for v in fila %}<td>{{ v|default_if_none:"" }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="99" class="text-muted">Sin resultados.</td></tr>{% endfor %}</tbody>
+      </table></div>
+      <div class="small text-muted">{{ c.total }} fila(s){% if c.total > 50 %}, se muestran 50{% endif %}.</div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -606,3 +606,18 @@ class BaseVaciaYDatosDePrueba(TestCase):
                 except ValidationError as e:
                     errores.append(f"{modelo.__name__} {obj.pk}: {e.messages}")
         self.assertEqual(errores, [])
+
+
+class ConsultasSQL(TestCase):
+    def test_archivo_tiene_15_consultas(self):
+        from .consultas import cargar
+        consultas = cargar()
+        self.assertEqual([c["numero"] for c in consultas], list(range(1, 16)))
+        self.assertTrue(all(c["sql"].upper().lstrip().startswith(("SELECT", "WITH")) for c in consultas))
+
+    def test_pagina_de_consultas(self):
+        call_command("poblar_datos", verbosity=0)
+        r = self.client.get(reverse("consultas_sql"))
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "alert-danger")
+        self.assertContains(r, "Función de ventana")
