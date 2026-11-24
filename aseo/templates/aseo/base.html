@@ -1,0 +1,55 @@
+<!doctype html>
+{% load static %}
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}LimpiaHogar{% endblock %} · LimpiaHogar</title>
+  <link href="{% static 'aseo/bootstrap.min.css' %}" rel="stylesheet">
+  <style>
+    body { background:#f5f7fa; }
+    .sidebar { min-height:100vh; background:#1f2d3d; }
+    .sidebar a { color:#cfd8e3; text-decoration:none; display:block; padding:.2rem 1rem; font-size:.92rem; border-radius:.3rem; }
+    .sidebar a:hover, .sidebar a.activo { background:#2f4358; color:#fff; }
+    .sidebar .grupo { color:#8aa0b8; font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; margin:1rem 1rem .3rem; }
+    .marca { color:#fff; font-weight:700; font-size:1.2rem; padding:1rem; display:block; }
+    table td, table th { vertical-align: middle; }
+  </style>
+</head>
+<body>
+<div class="container-fluid">
+  <div class="row">
+    <nav class="col-md-3 col-lg-2 sidebar p-0 pb-4">
+      <a class="marca" href="{% url 'inicio' %}">🧽 LimpiaHogar</a>
+      <div class="grupo">General</div>
+      <a href="{% url 'inicio' %}">Inicio</a>
+      <a href="{% url 'informes' %}">Informes</a>
+      <a href="{% url 'clientes_calificacion' %}">Calificación de clientes</a>
+      {% for grupo, tablas in menu_grupos %}
+        <div class="grupo">{{ grupo }}</div>
+        {% for clave, nombre in tablas %}
+          <a href="{% url 'lista' clave %}" class="{% if tabla == clave %}activo{% endif %}">{{ nombre }}</a>
+        {% endfor %}
+      {% endfor %}
+    </nav>
+    <main class="col-md-9 col-lg-10 px-4 py-3">
+      <div class="d-flex justify-content-end mb-2 small">
+        {% if user.is_authenticated %}
+          <span class="me-3 text-muted">Sesión: <strong>{{ user.username }}</strong></span>
+          <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-link btn-sm p-0">Salir</button></form>
+        {% else %}
+          <a href="{% url 'login' %}?next={{ request.path }}">Ingresar para editar</a>
+        {% endif %}
+      </div>
+      {% for m in messages %}
+        <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} alert-dismissible fade show">
+          {{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+      {% block contenido %}{% endblock %}
+    </main>
+  </div>
+</div>
+<script src="{% static 'aseo/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

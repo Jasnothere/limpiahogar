@@ -1,0 +1,66 @@
+{% extends "aseo/base.html" %}
+{% load humanize %}
+{% block titulo %}Servicio #{{ s.pk }}{% endblock %}
+{% block contenido %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 m-0">Servicio #{{ s.pk }} <span class="badge text-bg-{% if s.estado == 'finalizado' %}success{% elif s.estado == 'cancelado' %}secondary{% elif s.estado == 'confirmado' %}primary{% else %}warning{% endif %}">{{ s.get_estado_display }}</span></h1>
+  {% if user.is_authenticated %}<a class="btn btn-outline-primary btn-sm" href="{% url 'editar' 'servicio' s.pk %}?next={{ volver }}">Editar servicio</a>{% endif %}
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-md-6"><div class="card p-3 h-100">
+    <div><strong>Cliente:</strong> {{ s.vivienda.cliente }} <span class="text-muted">({{ s.vivienda.cliente.get_estado_display }})</span></div>
+    <div><strong>Vivienda:</strong> {{ s.vivienda.direccion }}, {{ s.vivienda.barrio.nombre }} · zona {{ s.vivienda.barrio.zona }}</div>
+    <div><strong>Fecha:</strong> {{ s.fecha }} a las {{ s.hora_inicio|time:"H:i" }} · duración estimada {{ s.duracion_total }} h</div>
+    {% if s.observaciones %}<div><strong>Observaciones:</strong> {{ s.observaciones }}</div>{% endif %}
+  </div></div>
+  <div class="col-md-6"><div class="card p-3 h-100">
+    <div><strong>Total:</strong> ${{ s.total|floatformat:0|intcomma }}</div>
+    <div><strong>Calificación del servicio:</strong> {% if s.calificacion_servicio %}{{ s.calificacion_servicio }}/5 — {{ s.comentario_servicio|default:"sin comentario" }}{% else %}<span class="text-muted">sin calificar</span>{% endif %}</div>
+    <div><strong>Pago:</strong>
+      {% if pago %}{{ pago.metodo_pago }} · ${{ pago.monto|floatformat:0|intcomma }} · {{ pago.fecha }}
+        {% if user.is_authenticated %}<a href="{% url 'editar' 'pago' pago.pk %}?next={{ volver }}">editar</a>{% endif %}
+      {% else %}<span class="text-muted">sin pago</span>
+        {% if user.is_authenticated and s.estado == 'finalizado' %}<a href="{% url 'crear' 'pago' %}?servicio={{ s.pk }}&next={{ volver }}">registrar pago</a>{% endif %}
+      {% endif %}
+    </div>
+  </div></div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between"><span class="fw-semibold">Tipos de servicio incluidos</span>
+    {% if user.is_authenticated %}<a href="{% url 'crear' 'detalle_servicio' %}?servicio={{ s.pk }}&next={{ volver }}">+ agregar</a>{% endif %}</div>
+  <table class="table table-sm mb-0"><thead><tr><th>Tipo</th><th>Especialidad</th><th>Alcance</th><th>Precio</th><th></th></tr></thead><tbody>
+  {% for d in detalles %}<tr><td>{{ d.tipo_servicio }}</td><td>{{ d.tipo_servicio.especialidad }}</td><td>{{ d.alcance }}</td><td>${{ d.precio_aplicado|floatformat:0|intcomma }}</td>
+    <td class="text-end">{% if user.is_authenticated %}<a href="{% url 'editar' 'detalle_servicio' d.pk %}?next={{ volver }}">editar</a> · <a class="text-danger" href="{% url 'eliminar' 'detalle_servicio' d.pk %}?next={{ volver }}">quitar</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="text-muted">Aún no tiene tipos de servicio.</td></tr>{% endfor %}
+  </tbody></table>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between"><span class="fw-semibold">Empleados asignados y calificaciones</span>
+    {% if user.is_authenticated %}<a href="{% url 'crear' 'asignacion' %}?servicio={{ s.pk }}&next={{ volver }}">+ asignar</a>{% endif %}</div>
+  <table class="table table-sm mb-0"><thead><tr><th>Empleado</th><th>Cliente → empleado</th><th>Empleado → cliente</th><th></th></tr></thead><tbody>
+  {% for a in asignaciones %}<tr><td>{{ a.empleado }}</td>
+    <td>{% if a.calificacion_empleado %}{{ a.calificacion_empleado }}/5 {{ a.comentario_empleado|default:"" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+    <td>{% if a.calificacion_cliente %}{{ a.calificacion_cliente }}/5 {{ a.comentario_cliente|default:"" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+    <td class="text-end">{% if user.is_authenticated %}<a href="{% url 'editar' 'asignacion' a.pk %}?next={{ volver }}">calificar / editar</a> · <a class="text-danger" href="{% url 'eliminar' 'asignacion' a.pk %}?next={{ volver }}">quitar</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="4" class="text-muted">Sin empleados asignados.</td></tr>{% endfor %}
+  </tbody></table>
+  {% if candidatos %}
+  <div class="card-footer small"><strong>Empleados disponibles</strong> (tienen las especialidades y trabajan en la zona):
+    {% for e in candidatos %}{% if user.is_authenticated %}<a href="{% url 'crear' 'asignacion' %}?servicio={{ s.pk }}&empleado={{ e.pk }}&next={{ volver }}">{{ e }}</a>{% else %}{{ e }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between"><span class="fw-semibold">Insumos usados</span>
+    {% if user.is_authenticated %}<a href="{% url 'crear' 'insumo_usado' %}?servicio={{ s.pk }}&next={{ volver }}">+ agregar</a>{% endif %}</div>
+  <table class="table table-sm mb-0"><thead><tr><th>Insumo</th><th>Cantidad</th><th>Lo proporcionó</th><th></th></tr></thead><tbody>
+  {% for i in insumos %}<tr><td>{{ i.insumo }}</td><td>{{ i.cantidad }}</td><td>{{ i.get_proporcionado_por_display }}</td>
+    <td class="text-end">{% if user.is_authenticated %}<a href="{% url 'editar' 'insumo_usado' i.pk %}?next={{ volver }}">editar</a> · <a class="text-danger" href="{% url 'eliminar' 'insumo_usado' i.pk %}?next={{ volver }}">quitar</a>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="4" class="text-muted">Sin insumos registrados.</td></tr>{% endfor %}
+  </tbody></table>
+</div>
+<a href="{% url 'lista' 'servicio' %}">← Volver a servicios</a>
+{% endblock %}

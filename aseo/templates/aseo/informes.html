@@ -1,0 +1,33 @@
+{% extends "aseo/base.html" %}
+{% load humanize %}
+{% block titulo %}Informes{% endblock %}
+{% block contenido %}
+<h1 class="h3 mb-3">Informes</h1>
+<div class="row g-3">
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Servicios por fecha (últimas)</div>
+    <table class="table table-sm mb-0">{% for r in por_fecha %}<tr><td>{{ r.fecha }}</td><td class="text-end">{{ r.n }}</td></tr>{% endfor %}</table></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Servicios por zona</div>
+    <table class="table table-sm mb-0">{% for r in por_zona %}<tr><td>{{ r.vivienda__barrio__zona__nombre }}</td><td class="text-end">{{ r.n }}</td></tr>{% endfor %}</table></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Barrios con más servicios</div>
+    <table class="table table-sm mb-0">{% for r in por_barrio %}<tr><td>{{ r.vivienda__barrio__nombre }} <span class="text-muted small">({{ r.vivienda__barrio__zona__nombre }})</span></td><td class="text-end">{{ r.n }}</td></tr>{% endfor %}</table></div></div>
+
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Ingresos por mes</div>
+    <table class="table table-sm mb-0"><tr><th>Mes</th><th class="text-end">Pagos</th><th class="text-end">Total</th></tr>{% for r in ingresos_mes %}<tr><td>{{ r.mes|date:"F Y" }}</td><td class="text-end">{{ r.n }}</td><td class="text-end">${{ r.total|floatformat:0|intcomma }}</td></tr>{% endfor %}</table></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header fw-semibold">Ingresos por método de pago</div>
+    <table class="table table-sm mb-0"><tr><th>Método</th><th class="text-end">Pagos</th><th class="text-end">Total</th></tr>{% for r in ingresos_metodo %}<tr><td>{{ r.metodo_pago__nombre }}</td><td class="text-end">{{ r.n }}</td><td class="text-end">${{ r.total|floatformat:0|intcomma }}</td></tr>{% endfor %}</table></div></div>
+
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Empleados mejor calificados</div>
+    <table class="table table-sm mb-0">{% for e in mejores_empleados %}<tr><td>{{ e }}</td><td class="text-end">{{ e.promedio|floatformat:2 }} ({{ e.n }})</td></tr>{% endfor %}</table></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Tipos de servicio mejor calificados</div>
+    <table class="table table-sm mb-0">{% for t in mejores_servicios %}<tr><td>{{ t }}</td><td class="text-end">{{ t.promedio|floatformat:2 }}</td></tr>{% endfor %}</table></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Clientes con peor calificación</div>
+    <table class="table table-sm mb-0">{% for c in peores_clientes %}<tr class="{% if c.promedio < 3 %}table-danger{% endif %}"><td>{{ c }}</td><td class="text-end">{{ c.promedio|floatformat:2 }} ({{ c.n }})</td></tr>{% endfor %}</table></div></div>
+
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Insumos más usados</div>
+    <table class="table table-sm mb-0">{% for r in insumos_usados %}<tr><td>{{ r.insumo__nombre }} <span class="text-muted small">({{ r.insumo__categoria__nombre }})</span></td><td class="text-end">{{ r.total|floatformat:0 }}</td></tr>{% endfor %}</table></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Áreas más limpiadas</div>
+    <table class="table table-sm mb-0">{% for r in areas %}<tr><td>{{ r.area__tipo_area__nombre }}</td><td class="text-end">{{ r.n }}</td></tr>{% endfor %}</table></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header fw-semibold">Elementos más limpiados</div>
+    <table class="table table-sm mb-0">{% for r in elementos %}<tr><td>{{ r.elemento__tipo_elemento__nombre }}</td><td class="text-end">{{ r.n }}</td></tr>{% endfor %}</table></div></div>
+</div>
+{% endblock %}

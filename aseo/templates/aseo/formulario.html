@@ -1,0 +1,23 @@
+{% extends "aseo/base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block contenido %}
+<h1 class="h4 mb-3">{{ titulo }}</h1>
+<div class="card p-4" style="max-width:720px">
+<form method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {% if form.non_field_errors %}<div class="alert alert-danger">{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+  {% for campo in form %}
+    <div class="mb-3">
+      <label class="form-label" for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} *{% endif %}</label>
+      {{ campo }}
+      {% if campo.help_text %}<div class="form-text">{{ campo.help_text }}</div>{% endif %}
+      {% for e in campo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+    </div>
+  {% endfor %}
+  <button class="btn btn-primary">Guardar</button>
+  <a class="btn btn-link" href="{% if next %}{{ next }}{% else %}{% url 'lista' tabla %}{% endif %}">Cancelar</a>
+</form>
+</div>
+<p class="small text-muted mt-2">* Campo obligatorio.</p>
+{% endblock %}

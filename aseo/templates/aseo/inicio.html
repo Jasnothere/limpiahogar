@@ -1,0 +1,29 @@
+{% extends "aseo/base.html" %}
+{% load humanize %}
+{% block titulo %}Inicio{% endblock %}
+{% block contenido %}
+<h1 class="h3 mb-1">Sistema de servicios de aseo en viviendas</h1>
+<p class="text-muted">Gestión de clientes, viviendas, empleados, servicios, insumos y pagos.</p>
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card p-3"><div class="text-muted small">Servicios registrados</div><div class="fs-3 fw-bold">{{ resumen.servicios }}</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card p-3"><div class="text-muted small">Pendientes o confirmados</div><div class="fs-3 fw-bold">{{ resumen.pendientes }}</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card p-3"><div class="text-muted small">Ingresos totales</div><div class="fs-3 fw-bold">${{ resumen.ingresos|floatformat:0|intcomma }}</div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card p-3"><div class="text-muted small">Clientes activos</div><div class="fs-3 fw-bold">{{ resumen.clientes }}</div></div></div>
+</div>
+<div class="row g-3">
+  {% for grupo, tablas in grupos %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100">
+      <div class="card-header fw-semibold">{{ grupo }}</div>
+      <ul class="list-group list-group-flush">
+        {% for clave, nombre, total in tablas %}
+        <li class="list-group-item d-flex justify-content-between">
+          <a href="{% url 'lista' clave %}">{{ nombre }}</a><span class="badge text-bg-secondary">{{ total }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

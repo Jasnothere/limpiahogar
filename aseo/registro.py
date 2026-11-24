@@ -1,0 +1,68 @@
+"""
+Registro de las tablas que se gestionan con las vistas CRUD genéricas.
+
+Cada entrada dice qué modelo usar, qué columnas mostrar en el listado,
+en qué grupo del menú aparece y por qué campos se puede buscar.
+"""
+from . import models as m
+
+GRUPOS = [
+    ("Ubicación", ["zona", "barrio"]),
+    ("Clientes y viviendas", ["cliente", "vivienda", "area", "elemento"]),
+    ("Empleados", ["empleado", "especialidad", "empleado_especialidad", "empleado_zona"]),
+    ("Servicios", ["servicio", "tipo_servicio", "detalle_servicio", "asignacion"]),
+    ("Insumos", ["insumo", "categoria_insumo", "proveedor", "insumo_requerido", "insumo_usado"]),
+    ("Pagos", ["pago", "metodo_pago"]),
+    ("Catálogos", ["tipo_vivienda", "tipo_area", "tipo_elemento"]),
+]
+
+TABLAS = {
+    "zona": dict(modelo=m.Zona, columnas=["id_zona", "nombre"], buscar=["nombre"]),
+    "barrio": dict(modelo=m.Barrio, columnas=["id_barrio", "nombre", "zona"], buscar=["nombre", "zona__nombre"]),
+    "tipo_vivienda": dict(modelo=m.TipoVivienda, columnas=["id_tipo_vivienda", "nombre"], buscar=["nombre"]),
+    "tipo_area": dict(modelo=m.TipoArea, columnas=["id_tipo_area", "nombre"], buscar=["nombre"]),
+    "tipo_elemento": dict(modelo=m.TipoElemento, columnas=["id_tipo_elemento", "nombre"], buscar=["nombre"]),
+    "cliente": dict(modelo=m.Cliente,
+                    columnas=["id_cliente", "documento", "nombre", "apellido", "telefono", "correo", "estado"],
+                    buscar=["documento", "nombre", "apellido", "correo"]),
+    "vivienda": dict(modelo=m.Vivienda, columnas=["id_vivienda", "cliente", "direccion", "barrio", "tipo_vivienda"],
+                     buscar=["direccion", "cliente__nombre", "cliente__apellido", "barrio__nombre"]),
+    "area": dict(modelo=m.Area, columnas=["id_area", "vivienda", "tipo_area", "descripcion"],
+                 buscar=["descripcion", "tipo_area__nombre", "vivienda__direccion"]),
+    "elemento": dict(modelo=m.Elemento, columnas=["id_elemento", "area", "tipo_elemento", "descripcion"],
+                     buscar=["descripcion", "tipo_elemento__nombre"]),
+    "empleado": dict(modelo=m.Empleado,
+                     columnas=["id_empleado", "documento", "nombre", "apellido", "telefono", "estado", "supervisor"],
+                     buscar=["documento", "nombre", "apellido"]),
+    "especialidad": dict(modelo=m.Especialidad, columnas=["id_especialidad", "nombre"], buscar=["nombre"]),
+    "empleado_especialidad": dict(modelo=m.EmpleadoEspecialidad, columnas=["empleado", "especialidad"],
+                                  buscar=["empleado__nombre", "empleado__apellido", "especialidad__nombre"]),
+    "empleado_zona": dict(modelo=m.EmpleadoZona, columnas=["empleado", "zona"],
+                          buscar=["empleado__nombre", "empleado__apellido", "zona__nombre"]),
+    "tipo_servicio": dict(modelo=m.TipoServicio,
+                          columnas=["id_tipo_servicio", "nombre", "duracion_horas", "precio", "especialidad"],
+                          buscar=["nombre", "especialidad__nombre"]),
+    "servicio": dict(modelo=m.Servicio,
+                     columnas=["id_servicio", "vivienda", "fecha", "hora_inicio", "estado", "calificacion_servicio"],
+                     buscar=["vivienda__direccion", "vivienda__cliente__nombre", "vivienda__cliente__apellido",
+                             "estado"]),
+    "detalle_servicio": dict(modelo=m.DetalleServicio,
+                             columnas=["id_detalle", "servicio", "tipo_servicio", "area", "elemento",
+                                       "precio_aplicado"],
+                             buscar=["tipo_servicio__nombre"]),
+    "asignacion": dict(modelo=m.Asignacion,
+                       columnas=["servicio", "empleado", "calificacion_empleado", "calificacion_cliente"],
+                       buscar=["empleado__nombre", "empleado__apellido"]),
+    "categoria_insumo": dict(modelo=m.CategoriaInsumo, columnas=["id_categoria", "nombre"], buscar=["nombre"]),
+    "proveedor": dict(modelo=m.Proveedor, columnas=["id_proveedor", "nit", "nombre", "telefono"],
+                      buscar=["nit", "nombre"]),
+    "insumo": dict(modelo=m.Insumo, columnas=["id_insumo", "nombre", "categoria", "proveedor", "stock"],
+                   buscar=["nombre", "proveedor__nombre"]),
+    "insumo_requerido": dict(modelo=m.InsumoRequerido, columnas=["tipo_servicio", "insumo", "cantidad_sugerida"],
+                             buscar=["tipo_servicio__nombre", "insumo__nombre"]),
+    "insumo_usado": dict(modelo=m.InsumoUsado, columnas=["servicio", "insumo", "cantidad", "proporcionado_por"],
+                         buscar=["insumo__nombre"]),
+    "metodo_pago": dict(modelo=m.MetodoPago, columnas=["id_metodo_pago", "nombre"], buscar=["nombre"]),
+    "pago": dict(modelo=m.Pago, columnas=["id_pago", "servicio", "metodo_pago", "fecha", "monto"],
+                 buscar=["metodo_pago__nombre"]),
+}

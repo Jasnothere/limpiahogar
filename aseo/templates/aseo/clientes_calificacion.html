@@ -1,0 +1,20 @@
+{% extends "aseo/base.html" %}
+{% block titulo %}Calificación de clientes{% endblock %}
+{% block contenido %}
+<h1 class="h3">Calificación de clientes</h1>
+<p class="text-muted">Promedio de las calificaciones que los empleados les dan a los clientes. La empresa puede dejar de atender a los clientes con promedio menor a {{ limite }} (supuesto 15). Un cliente bloqueado no puede solicitar servicios nuevos, pero su historial se conserva.</p>
+<div class="card"><table class="table table-sm table-hover mb-0">
+<thead class="table-light"><tr><th>Cliente</th><th>Documento</th><th>Servicios</th><th>Promedio</th><th>Estado</th><th></th></tr></thead><tbody>
+{% for c in clientes %}
+<tr class="{% if c.promedio and c.promedio < limite %}table-danger{% endif %}">
+  <td>{{ c }}</td><td>{{ c.documento }}</td><td>{{ c.servicios }}</td>
+  <td>{% if c.promedio %}{{ c.promedio|floatformat:2 }}{% else %}<span class="text-muted">sin calificaciones</span>{% endif %}</td>
+  <td>{{ c.get_estado_display }}</td>
+  <td class="text-end">{% if user.is_authenticated %}
+    <form method="post" action="{% url 'cambiar_estado_cliente' c.pk %}">{% csrf_token %}
+      {% if c.estado == 'activo' %}<button class="btn btn-sm btn-outline-danger">Bloquear</button>{% else %}<button class="btn btn-sm btn-outline-success">Desbloquear</button>{% endif %}
+    </form>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+{% endblock %}
