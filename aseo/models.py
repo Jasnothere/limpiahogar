@@ -12,6 +12,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import Avg, F, Q, Sum
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 
 CALIFICACION = [MinValueValidator(1), MaxValueValidator(5)]
 
@@ -153,6 +155,14 @@ class Area(models.Model):
         nombre = self.descripcion or self.tipo_area.nombre
         return f"{nombre} ({self.vivienda.direccion})"
 
+    def clean(self):
+        # Un área que ya se usó en un servicio no puede pasar a otra vivienda
+        if self.pk and self.vivienda_id:
+            antes = Area.objects.filter(pk=self.pk).values_list("vivienda_id", flat=True).first()
+            if antes and antes != self.vivienda_id and DetalleServicio.objects.filter(
+                    Q(area_id=self.pk) | Q(elemento__area_id=self.pk)).exists():
+                raise ValidationError({"vivienda": "Esta área ya se usó en servicios; no se puede mover a otra vivienda."})
+
 
 class Elemento(models.Model):
     id_elemento = models.AutoField(primary_key=True)
@@ -167,6 +177,14 @@ class Elemento(models.Model):
     def __str__(self):
         nombre = self.descripcion or self.tipo_elemento.nombre
         return f"{nombre} - {self.area}"
+
+    def clean(self):
+        # Un elemento usado en un servicio no puede pasar a un área de otra vivienda
+        if self.pk and self.area_id:
+            antes = Elemento.objects.filter(pk=self.pk).values_list("area__vivienda_id", flat=True).first()
+            nueva = Area.objects.filter(pk=self.area_id).values_list("vivienda_id", flat=True).first()
+            if antes and antes != nueva and DetalleServicio.objects.filter(elemento_id=self.pk).exists():
+                raise ValidationError({"area": "Este elemento ya se usó en servicios; no se puede mover a otra vivienda."})
 
 
 # =====================================================================
@@ -217,6 +235,15 @@ class Empleado(models.Model):
     def clean(self):
         if self.pk and self.supervisor_id == self.pk:
             raise ValidationError({"supervisor": "Un empleado no puede ser su propio supervisor."})
+        # Evita ciclos: A supervisa a B y B supervisa a A (directa o indirectamente)
+        visto, actual = set(), self.supervisor_id
+        while actual and self.pk:
+            if actual == self.pk:
+                raise ValidationError({"supervisor": "Esa asignación crea un ciclo de supervisores."})
+            if actual in visto:
+                break
+            visto.add(actual)
+            actual = Empleado.objects.filter(pk=actual).values_list("supervisor_id", flat=True).first()
 
     @property
     def promedio_calificacion(self):
@@ -280,6 +307,21 @@ class TipoServicio(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+def cruce_horario(empleado_id, servicio):
+    """Devuelve otro servicio activo del empleado que se cruce con 'servicio', o None (supuesto 8)."""
+    if servicio.estado == "cancelado":
+        return None
+    inicio, fin = servicio.rango_horario()
+    otros = (Asignacion.objects.filter(empleado_id=empleado_id, servicio__fecha=servicio.fecha)
+             .exclude(servicio_id=servicio.pk).exclude(servicio__estado="cancelado")
+             .select_related("servicio"))
+    for otra in otros:
+        o_ini, o_fin = otra.servicio.rango_horario()
+        if inicio < o_fin and o_ini < fin:
+            return otra.servicio
+    return None
 
 
 class Servicio(models.Model):
@@ -353,8 +395,52 @@ class Servicio(models.Model):
                 errores["estado"] = "Agregue al menos un tipo de servicio antes de confirmar o finalizar."
             elif not self.asignaciones.exists():
                 errores["estado"] = "Asigne al menos un empleado antes de confirmar o finalizar."
+        if self.pk and self.vivienda_id:
+            errores.update(self._validar_edicion())
         if errores:
             raise ValidationError(errores)
+
+    def _validar_edicion(self):
+        """Reglas que solo aplican al editar un servicio que ya existe."""
+        errores = {}
+        anterior = Servicio.objects.get(pk=self.pk)
+        asignaciones = list(self.asignaciones.select_related("empleado"))
+
+        # Un servicio pagado o con calificaciones debe seguir finalizado (supuestos 10 y 12)
+        if self.estado != "finalizado":
+            if Pago.objects.filter(servicio_id=self.pk).exists():
+                errores["estado"] = "El servicio ya tiene un pago registrado; debe seguir finalizado."
+            elif any(a.calificacion_empleado is not None or a.calificacion_cliente is not None
+                     for a in asignaciones):
+                errores["estado"] = "El servicio ya tiene calificaciones; debe seguir finalizado."
+
+        # Cambio de vivienda: cliente bloqueado, áreas y elementos, zona de los empleados
+        if self.vivienda_id != anterior.vivienda_id:
+            nueva = Vivienda.objects.select_related("cliente", "barrio").get(pk=self.vivienda_id)
+            problemas = []
+            if nueva.cliente.estado == "bloqueado":
+                problemas.append("El cliente de esa vivienda está bloqueado.")
+            if self.detalles.filter(Q(area__isnull=False) & ~Q(area__vivienda_id=self.vivienda_id)).exists() or \
+                    self.detalles.filter(Q(elemento__isnull=False)
+                                         & ~Q(elemento__area__vivienda_id=self.vivienda_id)).exists():
+                problemas.append("Hay tipos de servicio con áreas o elementos de la vivienda anterior.")
+            fuera = [a.empleado for a in asignaciones
+                     if not a.empleado.zonas.filter(zona_id=nueva.barrio.zona_id).exists()]
+            if fuera:
+                problemas.append("No trabajan en la zona de la nueva vivienda: "
+                                 + ", ".join(str(e) for e in fuera) + ".")
+            if problemas:
+                errores["vivienda"] = " ".join(problemas)
+
+        # Cambio de fecha, hora o reactivación: revisar cruces de horario (supuesto 8)
+        if (self.fecha, self.hora_inicio, self.estado == "cancelado") != \
+                (anterior.fecha, anterior.hora_inicio, anterior.estado == "cancelado"):
+            for a in asignaciones:
+                otro = cruce_horario(a.empleado_id, self)
+                if otro:
+                    errores["hora_inicio"] = f"{a.empleado} ya tiene el servicio #{otro.pk} en ese horario."
+                    break
+        return errores
 
 
 class DetalleServicio(models.Model):
@@ -403,6 +489,14 @@ class DetalleServicio(models.Model):
                 errores["area"] = "El área no pertenece a la vivienda del servicio."
             if self.elemento_id and Elemento.objects.get(pk=self.elemento_id).area.vivienda_id != vivienda_id:
                 errores["elemento"] = "El elemento no pertenece a la vivienda del servicio."
+        # Los empleados ya asignados deben tener la especialidad de este tipo de servicio
+        if self.servicio_id and self.tipo_servicio_id:
+            esp = TipoServicio.objects.get(pk=self.tipo_servicio_id).especialidad_id
+            sin = Empleado.objects.filter(asignaciones__servicio_id=self.servicio_id).exclude(
+                especialidades__especialidad_id=esp)
+            if sin.exists():
+                errores["tipo_servicio"] = ("Estos empleados asignados no tienen la especialidad requerida: "
+                                            + ", ".join(str(e) for e in sin) + ".")
         if self.precio_aplicado is None and self.tipo_servicio_id:
             self.precio_aplicado = TipoServicio.objects.get(pk=self.tipo_servicio_id).precio
         if errores:
@@ -472,15 +566,9 @@ class Asignacion(models.Model):
             errores.append("Al empleado le falta la especialidad: " + ", ".join(e.nombre for e in faltan) + ".")
 
         # Supuesto 8: no puede tener dos servicios a la misma hora
-        inicio, fin = servicio.rango_horario()
-        otros = (Asignacion.objects.filter(empleado_id=self.empleado_id, servicio__fecha=servicio.fecha)
-                 .exclude(servicio_id=self.servicio_id).exclude(servicio__estado="cancelado")
-                 .select_related("servicio"))
-        for otra in otros:
-            o_ini, o_fin = otra.servicio.rango_horario()
-            if inicio < o_fin and o_ini < fin:
-                errores.append(f"El empleado ya tiene el servicio #{otra.servicio_id} en ese horario.")
-                break
+        otro = cruce_horario(self.empleado_id, servicio)
+        if otro:
+            errores.append(f"El empleado ya tiene el servicio #{otro.pk} en ese horario.")
 
         # Supuestos 12 a 14: solo se califica cuando el servicio termina
         if (self.calificacion_empleado is not None or self.calificacion_cliente is not None) \
@@ -618,11 +706,13 @@ class InsumoUsado(models.Model):
             if self._consumo():
                 Insumo.objects.filter(pk=self.insumo_id).update(stock=F("stock") - self._consumo())
 
-    def delete(self, *args, **kwargs):
-        with transaction.atomic():
-            if self._consumo():
-                Insumo.objects.filter(pk=self.insumo_id).update(stock=F("stock") + self._consumo())
-            return super().delete(*args, **kwargs)
+
+
+@receiver(pre_delete, sender=InsumoUsado)
+def devolver_stock(sender, instance, **kwargs):
+    """Devuelve al inventario lo que puso la empresa, también cuando se borra el servicio completo."""
+    if instance._consumo():
+        Insumo.objects.filter(pk=instance.insumo_id).update(stock=F("stock") + instance._consumo())
 
 
 # =====================================================================

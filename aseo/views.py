@@ -4,6 +4,7 @@ from operator import or_
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, models, transaction
 from django.db.models import Avg, Count, Q, Sum
@@ -114,7 +115,11 @@ def lista(request, tabla):
         if f.is_relation and request.GET.get(f.name):
             filtros[f.name] = request.GET[f.name]
     if filtros:
-        qs = qs.filter(**filtros)
+        try:
+            qs = qs.filter(**filtros)
+        except (ValueError, ValidationError):
+            messages.warning(request, "El filtro de la dirección no es válido; se muestran todos los registros.")
+            filtros = {}
 
     q = request.GET.get("q", "").strip()
     if q and conf.get("buscar"):
