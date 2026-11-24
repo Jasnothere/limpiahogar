@@ -10,7 +10,7 @@ services:
     name: limpiahogar
     runtime: python
     plan: free
-    buildCommand: ./build.sh
+    buildCommand: bash build.sh
     startCommand: gunicorn limpiahogar.wsgi:application
     envVars:
       - key: PYTHON_VERSION
